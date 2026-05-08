@@ -51,7 +51,7 @@ export function useStreaming(captureJpeg) {
       intervalRef.current = setInterval(async () => {
         try {
           const blob = await captureJpeg(0.8);
-          if (!blob) return;
+          if (!blob) { console.warn('captureJpeg returned null'); return; }
           const result = await pushFrame(session_id, blob);
           frameCountRef.current += 1;
           if (result.face_detected) faceCountRef.current += 1;

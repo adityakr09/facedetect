@@ -3,7 +3,6 @@ import { useRef, useState, useCallback } from "react";
 export function useCamera() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
   const start = useCallback(async () => {
@@ -19,7 +18,6 @@ export function useCamera() {
           videoRef.current.onloadedmetadata = resolve;
         });
         await videoRef.current.play();
-        setReady(true);
       }
     } catch (err) {
       setError(`Camera error: ${err.message}`);
@@ -32,13 +30,12 @@ export function useCamera() {
       video.srcObject.getTracks().forEach((t) => t.stop());
       video.srcObject = null;
     }
-    setReady(false);
   }, []);
 
   const captureJpeg = useCallback((quality = 0.8) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || !ready) return null;
+    if (!video || !canvas || video.videoWidth === 0) return null;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
@@ -46,7 +43,7 @@ export function useCamera() {
     return new Promise((resolve) => {
       canvas.toBlob(resolve, "image/jpeg", quality);
     });
-  }, [ready]);
+  }, []);
 
-  return { videoRef, canvasRef, ready, error, start, stop, captureJpeg };
+  return { videoRef, canvasRef, ready: true, error, start, stop, captureJpeg };
 }
