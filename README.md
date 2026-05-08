@@ -59,8 +59,8 @@ Then open **http://localhost** → Click **▶ Start** → Allow camera → Watc
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Docker Compose Network                    │
-│                                                              │
+│                    Docker Compose Network                   │
+│                                                             │
 │   Browser ──► Nginx :80 ──────► FastAPI Backend :8000       │
 │      │                │               │            │        │
 │      │           React SPA       WebSocket      REST API    │
