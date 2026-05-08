@@ -1,9 +1,10 @@
 <div align="center">
 
-# 🎯 FACEDETECT
-### Real-Time Face Detection & Video Streaming System
+<img src="https://img.shields.io/badge/🎯_FACEDETECT-Real--Time_Face_Detection-39ff14?style=for-the-badge&labelColor=0c0e12" alt="FaceDetect"/>
 
-![Demo](../Facedetection_Demo.png)
+# Real-Time Face Detection & Video Streaming System
+
+### 🟢 Live · Containerised · Production-Ready
 
 <br/>
 
@@ -13,243 +14,276 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-Face_Detection-FF6F00?style=for-the-badge&logo=google&logoColor=white)](https://mediapipe.dev)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![No OpenCV](https://img.shields.io/badge/OpenCV-NOT_USED-red?style=for-the-badge&logo=opencv&logoColor=white)]()
+[![License](https://img.shields.io/badge/License-MIT-39ff14?style=for-the-badge)](LICENSE)
 
 <br/>
 
-> A fully containerised, production-ready system that accepts a live webcam feed, detects faces in real-time using **MediaPipe** (no OpenCV), draws axis-aligned bounding boxes with **Pillow**, persists ROI data to **PostgreSQL**, and streams annotated frames to a **React** frontend over **WebSocket**.
+> A fully containerised system that accepts a **live webcam feed**, detects faces in real-time using **MediaPipe** *(zero OpenCV)*, draws axis-aligned bounding boxes with **Pillow**, persists ROI data to **PostgreSQL**, and streams annotated frames to a **React** frontend over **WebSocket**.
 
-**94.9% detection rate · 10 FPS · <50ms annotation latency**
+<br/>
+
+| 🎯 94.9% Detection Rate | ⚡ 10 FPS | 🟢 <50ms Latency | 🗄️ Full ROI Persistence |
+|:-:|:-:|:-:|:-:|
 
 </div>
 
 ---
 
-## ⚡ Run in 5 Minutes
+## 📸 Demo
 
-````bash
-# 1. Clone
+![FaceDetect Demo](./Facedetection_Demo.png)
+
+---
+
+## ⚡ Quick Start
+
+> **One command. That's it.**
+
+```bash
 git clone https://github.com/adityakr09/facedetect.git
 cd facedetect
+cp .env.example .env
+docker compose up --build
+```
 
-# 2. Configure
-cp .env.example .env          # edit secrets if needed
+Then open **http://localhost** → Click **▶ Start** → Allow camera → Watch it detect! 🔥
 
-# 3. Launch
-docker compose up --build     # first build ~10 min (mediapipe compiles)
-
-# 4. Open
-# http://localhost → Click ▶ Start → Allow camera
-````
-
-> No other dependencies. Docker is all you need.
+> ⏱️ First build ~10 min (MediaPipe compiles from source). Subsequent starts are instant.
 
 ---
 
 ## 🏗️ Architecture
 
-![Architecture Diagram](./architecture_diagram.png)
+![Architecture](./architecture_diagram.png)
 
-````
-┌─────────────────────────────────────────────────────────┐
-│                    Docker Network                        │
-│                                                          │
-│  Browser ──► Nginx :80 ──► FastAPI Backend :8000        │
-│     │           │               │         │             │
-│     │      React SPA       WebSocket   REST API         │
-│     │      (frontend)      /stream     /feed /roi       │
-│     │                          │         │              │
-│     └──── annotated JPEG ◄─────┘    PostgreSQL 16       │
-│           (WebSocket)               sessions            │
-│                                     frames              │
-│                                     rois (AABB)         │
-└─────────────────────────────────────────────────────────┘
-````
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Docker Compose Network                    │
+│                                                              │
+│   Browser ──► Nginx :80 ──────► FastAPI Backend :8000       │
+│      │                │               │            │        │
+│      │           React SPA       WebSocket      REST API    │
+│      │           (frontend)      /stream     /feed  /roi    │
+│      │                               │            │         │
+│      └──── Annotated JPEG ◄──────────┘       PostgreSQL 16  │
+│             (WebSocket)                      sessions       │
+│                                              frames         │
+│                                              rois (AABB)    │
+└─────────────────────────────────────────────────────────────┘
+```
 
-| Service | Image | Purpose |
-|---------|-------|---------|
-| `nginx` | nginx:1.25-alpine | Reverse proxy, WS upgrade, single port |
-| `backend` | python:3.12-slim | FastAPI, MediaPipe, Pillow annotation |
+| 🐳 Service | Image | Role |
+|-----------|-------|------|
+| `nginx` | nginx:1.25-alpine | Reverse proxy, WS upgrade, single ingress |
+| `backend` | python:3.12-slim | FastAPI + MediaPipe + Pillow annotation |
 | `frontend` | node:20 → nginx | React SPA (multi-stage build) |
-| `db` | postgres:16-alpine | Relational ROI storage |
+| `db` | postgres:16-alpine | Relational ROI storage with Alembic migrations |
 
 ---
 
-## 🔌 API Design
+## 🔌 API Reference
 
-### Endpoint 1 — Ingest Video Feed
-````http
-POST /api/v1/feed/start          # Create session → returns session_id
-POST /api/v1/feed/{session_id}   # Push JPEG frame (multipart)
+### Endpoint 1 — 📥 Receive Video Feed
+
+```http
+POST /api/v1/feed/start
+POST /api/v1/feed/{session_id}        ← multipart JPEG
 POST /api/v1/feed/{session_id}/stop
-````
+```
 
-**Push frame response:**
-````json
+**Response (push frame):**
+```json
 {
   "frame_index": 42,
   "face_detected": true,
   "roi": { "x": 249, "y": 125, "width": 184, "height": 184 }
 }
-````
+```
 
-### Endpoint 2 — Serve Annotated Stream
-````
+### Endpoint 2 — 📡 Serve Annotated Stream
+
+```
 WS /api/v1/stream/{session_id}
-````
-Binary WebSocket — raw annotated JPEG bytes. Lime-green AABB drawn with **Pillow only, zero OpenCV**.
+```
 
-### Endpoint 3 — ROI Data
-````http
-GET /api/v1/roi/{session_id}?skip=0&limit=100   # Paginated
-GET /api/v1/roi/{session_id}/latest             # Most recent
-GET /health                                      # Liveness probe
-````
+Binary WebSocket messages — raw annotated JPEG bytes with **lime-green AABB** drawn by Pillow. **Zero OpenCV.**
+
+### Endpoint 3 — 📊 Serve ROI Data
+
+```http
+GET /api/v1/roi/{session_id}?skip=0&limit=100
+GET /api/v1/roi/{session_id}/latest
+GET /health
+```
+
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "total": 2897,
+  "items": [
+    {
+      "frame_index": 42,
+      "face_detected": true,
+      "roi": { "x": 249, "y": 125, "width": 184, "height": 184, "confidence": 0.98 }
+    }
+  ]
+}
+```
 
 ---
 
 ## 🗄️ Database Schema
 
-Designed for relational integrity — one ROI per frame, cascade deletes, indexed foreign keys.
-
-````sql
-sessions
-  id          UUID PRIMARY KEY
-  started_at  TIMESTAMPTZ
-  ended_at    TIMESTAMPTZ
-  client_ip   VARCHAR(45)
+```sql
+sessions ──────────────────────────────────────────────────
+  id            UUID        PRIMARY KEY
+  started_at    TIMESTAMPTZ
+  ended_at      TIMESTAMPTZ NULL
+  client_ip     VARCHAR(45)
       │
-      └── frames
-            id            BIGINT PK
-            session_id    UUID FK → sessions (CASCADE)
+      └── frames ────────────────────────────────────────────
+            id            BIGINT      PRIMARY KEY
+            session_id    UUID        FK → sessions (CASCADE)
             frame_index   INT
             width/height  INT
             face_detected BOOLEAN
             captured_at   TIMESTAMPTZ
                 │
-                └── rois                    ← one-to-one with frame
-                      id           BIGINT PK
-                      frame_id     BIGINT FK → frames (CASCADE)
-                      x, y         INT  ← top-left corner
-                      width, height INT  ← axis-aligned bounding box
-                      confidence   FLOAT
-                      detected_at  TIMESTAMPTZ
-````
+                └── rois ────────────────────────────────────
+                      id            BIGINT  PRIMARY KEY
+                      frame_id      BIGINT  FK → frames (CASCADE, UNIQUE)
+                      x, y          INT     ← top-left origin
+                      width, height INT     ← axis-aligned bounding box
+                      confidence    FLOAT
+                      detected_at   TIMESTAMPTZ
+```
 
-Migrations managed by **Alembic** — run automatically on container start.
+> Migrations auto-run via **Alembic** on container start. One ROI per frame, cascade deletes, indexed FKs.
 
 ---
 
-## 🧠 Face Detection Pipeline
+## 🧠 Detection Pipeline
 
-````
-JPEG bytes
-    │
+```
+📷 Webcam
+    │  JPEG (multipart)
     ▼
-Pillow decode → RGB array
+FastAPI /feed/{id}
     │
-    ▼
-MediaPipe FaceDetection (model_selection=0, CPU)
+    ├── Pillow decode → RGB numpy array
     │
-    ▼
-Relative bbox → absolute pixel coords
+    ├── MediaPipe FaceDetection
+    │     model_selection=0 (short-range, CPU)
+    │     min_confidence=0.5
     │
-    ▼
-Pillow ImageDraw.rectangle (lime green, 3px)
+    ├── Relative bbox → absolute pixel coords
     │
-    ▼
-JPEG encode → asyncio.Queue → WebSocket → Browser
+    ├── Pillow ImageDraw.rectangle ← LIME GREEN, 3px
+    │     ⚠️  Zero OpenCV
     │
-    ▼
-PostgreSQL (frame + ROI row)
-````
-
-**No OpenCV used anywhere.** All image I/O and annotation is pure Pillow.
+    ├── JPEG encode → asyncio.Queue
+    │
+    ├── PostgreSQL INSERT (frame + roi)
+    │
+    └── WebSocket → Browser → <img> render
+```
 
 ---
 
 ## 🛡️ Security
 
-- CORS restricted via `CORS_ORIGINS` env var
-- `client_max_body_size 5m` enforced at Nginx
-- Frame content-type validated (JPEG only)
-- PostgreSQL not exposed on host network
-- Secrets externalised to `.env` (never committed)
-- `X-Real-IP` / `X-Forwarded-For` forwarded correctly
+- ✅ CORS restricted via `CORS_ORIGINS` env var
+- ✅ `client_max_body_size 5m` at Nginx
+- ✅ JPEG content-type validated before processing
+- ✅ PostgreSQL not exposed on host network
+- ✅ All secrets in `.env` — never committed
+- ✅ `X-Real-IP` / `X-Forwarded-For` forwarded correctly
+- ✅ WebSocket slow-client protection (frame drops, not stalls)
 
 ---
 
-## ⚙️ Configuration (`.env`)
+## ⚙️ Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_USER` | `facedetect` | DB user |
-| `POSTGRES_PASSWORD` | `facedetect_secret` | **Change in production** |
-| `POSTGRES_DB` | `facedetect` | Database name |
-| `SECRET_KEY` | `supersecret...` | **Change in production** |
-| `LOG_LEVEL` | `info` | debug / info / warning / error |
-| `HOST_PORT` | `80` | Host port Nginx binds |
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `POSTGRES_USER` | `facedetect` | |
+| `POSTGRES_PASSWORD` | `facedetect_secret` | ⚠️ Change in prod |
+| `POSTGRES_DB` | `facedetect` | |
+| `SECRET_KEY` | `supersecret...` | ⚠️ Change in prod |
+| `LOG_LEVEL` | `info` | debug/info/warning/error |
+| `HOST_PORT` | `80` | Nginx host port |
 
 ---
 
-## 🧪 Testing
+## 🧪 Tests
 
-````bash
-# Run all tests inside container
+```bash
 docker compose exec backend pytest -v
+```
 
-# Tests cover:
-# ✓ Detection service — bbox math, clamping, invalid input
-# ✓ BoundingBox — right/bottom properties
-# ✓ Session store — create, get, close, sentinel
-# ✓ API endpoints — 404, 415, health check
-````
+| Test | Coverage |
+|------|----------|
+| `test_returns_result_with_no_face` | Detection service — no face |
+| `test_returns_bbox_when_face_detected` | Bbox coordinates math |
+| `test_invalid_bytes_raises_value_error` | Error handling |
+| `test_annotated_jpeg_is_valid` | Output JPEG validity |
+| `test_roi_clamped_to_image_bounds` | Edge case — bbox overflow |
+| `test_right_and_bottom` | BoundingBox properties |
+| `test_create_and_get` | Session store lifecycle |
+| `test_health` | API health endpoint |
+| `test_push_frame_unknown_session` | 404 handling |
+| `test_push_frame_wrong_content_type` | 415 handling |
 
 ---
 
-## 📁 Project Structure
+## 📁 Structure
 
-````
+```
 facedetect/
-├── backend/
-│   ├── app/
-│   │   ├── api/          # feed.py, stream.py, roi.py, health.py
-│   │   ├── core/         # config.py, logging.py
-│   │   ├── db/           # session.py, models.py
-│   │   ├── models/       # schemas.py (Pydantic)
-│   │   ├── services/     # detection.py, session_store.py
-│   │   ├── tests/        # test_api.py
+├── 📁 backend/
+│   ├── 📁 app/
+│   │   ├── 📁 api/          # feed.py · stream.py · roi.py · health.py
+│   │   ├── 📁 core/         # config.py · logging.py
+│   │   ├── 📁 db/           # session.py · models.py
+│   │   ├── 📁 models/       # schemas.py (Pydantic)
+│   │   ├── 📁 services/     # detection.py · session_store.py
+│   │   ├── 📁 tests/        # test_api.py
 │   │   └── main.py
-│   ├── alembic/          # migrations
+│   ├── 📁 alembic/          # async migrations
 │   ├── Dockerfile
 │   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/   # VideoPanel, StatsPanel, ROITable
-│   │   ├── hooks/        # useCamera, useStreaming
-│   │   ├── utils/        # api.js
+├── 📁 frontend/
+│   ├── 📁 src/
+│   │   ├── 📁 components/   # VideoPanel · StatsPanel · ROITable
+│   │   ├── 📁 hooks/        # useCamera · useStreaming
+│   │   ├── 📁 utils/        # api.js
 │   │   └── App.jsx
 │   └── Dockerfile
-├── nginx/nginx.conf
-├── scripts/init.sql
-├── docker-compose.yml
-└── .env.example
-````
+├── 📁 nginx/nginx.conf
+├── 📁 scripts/init.sql
+├── 🐳 docker-compose.yml
+├── 🔐 .env.example
+└── 📖 README.md
+```
 
 ---
 
 ## 🤖 AI Collaboration Disclosure
 
-This project was built with **Claude (Anthropic)** assistance. AI was used to generate:
-- FastAPI router boilerplate and SQLAlchemy ORM models
-- Alembic async migration setup
-- MediaPipe detection wrapper and Pillow annotation logic
-- React hooks (`useCamera`, `useStreaming`) and component structure
-
-All generated code was reviewed, debugged, integrated, and tested by the developer. Architecture decisions, schema design, debugging, and deployment were directed by the developer.
+Built with **Claude (Anthropic)** assistance. AI generated initial boilerplate for FastAPI routers, SQLAlchemy models, Alembic migrations, MediaPipe wrapper, Pillow annotation, and React hooks. All code reviewed, debugged, integrated, and tested by the developer. Architecture, schema design, debugging, and deployment directed by developer.
 
 ---
 
-## 📄 License
+<div align="center">
 
-MIT © Aditya Kumar 2026
+**Built by Aditya Kumar · 2026**
+
+[![GitHub](https://img.shields.io/badge/GitHub-adityakr09-181717?style=for-the-badge&logo=github)](https://github.com/adityakr09)
+
+</div>
