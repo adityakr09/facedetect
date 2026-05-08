@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/🎯_FACEDETECT-Real--Time_Face_Detection-39ff14?style=for-the-badge&labelColor=0c0e12" alt="FaceDetect"/>
+# 🎯 FACEDETECT &nbsp; ![](https://img.shields.io/badge/REAL--TIME_FACE_DETECTION-39ff14?style=for-the-badge&labelColor=0c0e12)
 
 # Real-Time Face Detection & Video Streaming System
 
